@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 
@@ -32,10 +33,19 @@ app.use(
   })
 );
 
+// Serve frontend static assets from public/
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
+
 // ==============================
 // 2. Root & Health Check Routes
 // ==============================
 app.get("/", (req, res) => {
+  // If request is from a browser asking for HTML, serve the frontend SPA
+  if (req.headers.accept && req.headers.accept.includes("text/html")) {
+    return res.sendFile(path.join(__dirname, "public", "index.html"));
+  }
+
+  // Otherwise return API information JSON
   res.json({
     name: "To-Do Manager API",
     status: "running",
