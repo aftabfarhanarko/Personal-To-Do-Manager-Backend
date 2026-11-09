@@ -1,0 +1,15 @@
+const express = require("express");
+const router = express.Router();
+
+const { register, login, logout, getProfile } = require("../controllers/auth.controllers");
+const { authenticateToken } = require("../middleware/auth.middleware");
+
+// Public authentication routes
+router.post("/register", register);
+router.post("/login", login);
+router.post("/logout", logout);
+
+// Protected routes
+router.get("/me", authenticateToken, getProfile);
+
+module.exports = router;
