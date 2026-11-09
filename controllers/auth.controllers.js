@@ -15,7 +15,8 @@ const register = (req, res, next) => {
     if (!name || !email || !password || password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required (password must be at least 6 characters)",
+        message:
+          "All fields are required (password must be at least 6 characters)",
       });
     }
 
