@@ -12,6 +12,7 @@ try {
 const authRouter = require("./router/auth.route");
 const todosRouter = require("./router/todos.route");
 const { requestLogger } = require("./middleware/logger.middleware");
+const { auditLogger } = require("./middleware/auditLogger");
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
@@ -32,6 +33,7 @@ app.use(
     cookie: { httpOnly: true, maxAge: 2 * 60 * 60 * 1000 }, // 2 hours
   })
 );
+app.use(auditLogger);
 
 // Serve frontend static assets from public/
 app.use(express.static(path.join(__dirname, "public"), { index: false }));

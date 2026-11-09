@@ -323,4 +323,37 @@ test("To-Do Manager API Suite", async (t) => {
     });
     assert.strictEqual(getRes.status, 404);
   });
+
+  await t.test("auditLogger - writes structured JSON logs and blocks blocked users", async () => {
+    const { blockUser, unblockUser, isBlocked, getAuditLogs } = require("../middleware/auditLogger");
+
+    // 1. Verify structured logs recorded
+    const logs = getAuditLogs();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.length > 0);
+    const sample = logs[0];
+    assert.ok(sample.id);
+    assert.ok(sample.timestamp);
+    assert.ok(sample.method);
+    assert.ok(sample.statusCode);
+
+    // 2. Block a target identifier
+    const blockedEmail = "spammer@example.com";
+    blockUser(blockedEmail, "Violation of terms");
+    assert.strictEqual(isBlocked(blockedEmail), true);
+
+    // 3. Attempt request with blocked user -> 403 Forbidden
+    const blockedRes = await makeRequest(
+      server,
+      { path: "/api/auth/login", method: "POST" },
+      { email: blockedEmail, password: "password123" }
+    );
+    assert.strictEqual(blockedRes.status, 403);
+    assert.strictEqual(blockedRes.data.success, false);
+    assert.ok(blockedRes.data.message.includes("blocked"));
+
+    // 4. Unblock target
+    unblockUser(blockedEmail);
+    assert.strictEqual(isBlocked(blockedEmail), false);
+  });
 });
