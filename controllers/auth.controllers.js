@@ -6,38 +6,38 @@ const {
   destroyCookieSession,
 } = require("../utils/auth.utils");
 
-// ১. নতুন ইউজার রেজিস্ট্রেশন (Register)
+// 1. User Registration (Register)
 const register = (req, res, next) => {
   try {
     const { name, email, password } = req.body || {};
 
-    // সাধারণ ভ্যালিডেশন
+    // Input validation
     if (!name || !email || !password || password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "সব তথ্য দিন (পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে)",
+        message: "All fields are required (password must be at least 6 characters)",
       });
     }
 
-    // ইমেইল আগে থেকেই আছে কিনা চেক
+    // Check if email is already registered
     if (UserModel.findByEmail(email)) {
       return res.status(409).json({
         success: false,
-        message: "এই ইমেইল দিয়ে আগেই অ্যাকাউন্ট রয়েছে",
+        message: "An account with this email already exists",
       });
     }
 
-    // ইউজার তৈরি ও টোকেন জেনারেট
+    // Create user and generate token
     const user = UserModel.create({ name, email, password });
     const token = generateToken({ id: user.id, email: user.email });
 
-    // কুকি ও সেশন সেট করা
+    // Set cookie and session
     setAuthCookie(res, token);
     setSessionUser(req, user);
 
     return res.status(201).json({
       success: true,
-      message: "রেজিস্ট্রেশন সফল হয়েছে",
+      message: "User registered successfully",
       data: { user, token },
     });
   } catch (error) {
@@ -45,7 +45,7 @@ const register = (req, res, next) => {
   }
 };
 
-// ২. ইউজার লগইন (Login)
+// 2. User Login (Login)
 const login = (req, res, next) => {
   try {
     const { email, password } = req.body || {};
@@ -53,28 +53,28 @@ const login = (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "ইমেইল ও পাসওয়ার্ড প্রদান করুন",
+        message: "Email and password are required",
       });
     }
 
-    // পাসওয়ার্ড ভেরিফাই করা
+    // Verify user credentials
     const user = UserModel.verifyCredentials(email, password);
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "ভুল ইমেইল অথবা পাসওয়ার্ড",
+        message: "Invalid email or password",
       });
     }
 
     const token = generateToken({ id: user.id, email: user.email });
 
-    // কুকি ও সেশন সেট করা
+    // Set cookie and session
     setAuthCookie(res, token);
     setSessionUser(req, user);
 
     return res.status(200).json({
       success: true,
-      message: "লগইন সফল হয়েছে",
+      message: "Login successful",
       data: { user, token },
     });
   } catch (error) {
@@ -82,7 +82,7 @@ const login = (req, res, next) => {
   }
 };
 
-// ৩. ইউজার লগআউট (Logout)
+// 3. User Logout (Logout)
 const logout = (req, res, next) => {
   try {
     destroyCookieSession(res);
@@ -107,7 +107,7 @@ const logout = (req, res, next) => {
   }
 };
 
-// ৪. বর্তমান ইউজারের প্রোফাইল (Profile)
+// 4. Get Current User Profile (Profile)
 const getProfile = (req, res) => {
   res.status(200).json({
     success: true,

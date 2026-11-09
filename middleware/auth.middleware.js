@@ -1,9 +1,9 @@
 const { verifyToken, getTokenFromCookie } = require("../utils/auth.utils");
 const UserModel = require("../models/user.model");
 
-// ১. টোকেন বা সেশন যাচাই করার মিডলওয়্যার
+// 1. Authenticate user via Express-Session, Bearer token, or Cookie
 function authenticateToken(req, res, next) {
-  // সেশন চেক (express-session)
+  // Check express-session
   if (req.session?.userId) {
     const user = UserModel.findById(req.session.userId);
     if (user) {
@@ -12,7 +12,7 @@ function authenticateToken(req, res, next) {
     }
   }
 
-  // হেডার (Bearer) বা কুকি (Cookie) থেকে টোকেন নেওয়া
+  // Check Bearer token in header or token in cookie
   const authHeader = req.headers["authorization"] || req.headers["Authorization"];
   const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   const token = bearerToken || req.cookies?.token || getTokenFromCookie(req);
@@ -20,18 +20,18 @@ function authenticateToken(req, res, next) {
   if (!token) {
     return res.status(401).json({
       success: false,
-      message: "লগইন করুন বা টোকেন দিন",
+      message: "Access token required. Please login or provide a token",
     });
   }
 
-  // টোকেন ভেরিফাই করা
+  // Verify JWT token
   const decoded = verifyToken(token);
   const user = decoded?.id ? UserModel.findById(decoded.id) : null;
 
   if (!user) {
     return res.status(401).json({
       success: false,
-      message: "টোকেনটি সঠিক নয় বা মেয়াদ শেষ",
+      message: "Invalid or expired token",
     });
   }
 
@@ -39,7 +39,7 @@ function authenticateToken(req, res, next) {
   next();
 }
 
-// ২. অপশনাল লগইন চেক (থাকলে ইউজার সেট করবে)
+// 2. Optional authentication middleware (attaches user if session or token exists)
 function optionalAuth(req, res, next) {
   if (req.session?.userId) {
     req.user = UserModel.findById(req.session.userId);

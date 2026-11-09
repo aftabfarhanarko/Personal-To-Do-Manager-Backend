@@ -281,6 +281,12 @@ test("To-Do Manager API Suite", async (t) => {
     assert.strictEqual(res.data.success, false);
   });
 
+  await t.test("GET /todos/invalid/sub/path - returns 404 from checkTodoRoute middleware", async () => {
+    const res = await makeRequest(server, { path: "/todos/invalid/sub/path", method: "GET" });
+    assert.strictEqual(res.status, 404);
+    assert.strictEqual(res.data.success, false);
+  });
+
   await t.test("PATCH /api/todos/:id/toggle - toggles completed status", async () => {
     const res = await makeRequest(server, {
       path: `/api/todos/${createdTodoId}/toggle`,

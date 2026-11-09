@@ -10,29 +10,27 @@ const {
   deleteTodo,
 } = require("../controllers/todos.controllers");
 const { optionalAuth } = require("../middleware/auth.middleware");
+const {
+  checkTodoRoute,
+  checkTodoExists,
+  validateTodo,
+} = require("../middleware/todos.middleware");
 
-// All routes support optional authentication (attaches user if token is provided)
+// 1. Verify that the requested route path exists (returns 404 if invalid)
+router.use(checkTodoRoute);
+
+// 2. Optional authentication middleware
 router.use(optionalAuth);
 
-// GET /todos - List all todos with search/filter/sort
+// 3. Route handlers
 router.get("/", getAllTodos);
+router.post("/", validateTodo, createTodo);
 
-// GET /todos/:id - Get a specific todo
-router.get("/:id", getTodoById);
-
-// POST /todos - Create a new todo
-router.post("/", createTodo);
-
-// PUT /todos/:id - Update full todo
-router.put("/:id", updateTodo);
-
-// PATCH /todos/:id - Partial update todo
-router.patch("/:id", updateTodo);
-
-// PATCH /todos/:id/toggle - Toggle completed status
-router.patch("/:id/toggle", toggleTodo);
-
-// DELETE /todos/:id - Delete a todo
-router.delete("/:id", deleteTodo);
+// Routes targeting a specific ID verify item existence first
+router.get("/:id", checkTodoExists, getTodoById);
+router.put("/:id", checkTodoExists, updateTodo);
+router.patch("/:id", checkTodoExists, updateTodo);
+router.patch("/:id/toggle", checkTodoExists, toggleTodo);
+router.delete("/:id", checkTodoExists, deleteTodo);
 
 module.exports = router;

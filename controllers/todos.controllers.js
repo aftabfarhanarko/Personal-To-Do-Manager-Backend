@@ -1,6 +1,6 @@
 const TodoModel = require("../models/todo.model");
 
-// ১. সব টু-ডু দেখা (Get All Todos)
+// 1. Get All Todos
 const getAllTodos = (req, res, next) => {
   try {
     const todos = TodoModel.findAll(req.query);
@@ -14,14 +14,14 @@ const getAllTodos = (req, res, next) => {
   }
 };
 
-// ২. নির্দিষ্ট একটি টু-ডু দেখা (Get Single Todo)
+// 2. Get Single Todo by ID
 const getTodoById = (req, res, next) => {
   try {
-    const todo = TodoModel.findById(req.params.id);
+    const todo = req.todo || TodoModel.findById(req.params.id);
     if (!todo) {
       return res.status(404).json({
         success: false,
-        message: "Todo পাওয়া যায়নি",
+        message: `Todo with ID '${req.params.id}' not found`,
       });
     }
 
@@ -34,7 +34,7 @@ const getTodoById = (req, res, next) => {
   }
 };
 
-// ৩. নতুন টু-ডু তৈরি করা (Create Todo)
+// 3. Create New Todo
 const createTodo = (req, res, next) => {
   try {
     const { title, description, priority, dueDate, completed } = req.body || {};
@@ -42,7 +42,7 @@ const createTodo = (req, res, next) => {
     if (!title || !title.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Title দেওয়া বাধ্যতামূলক",
+        message: "Title is required",
       });
     }
 
@@ -57,7 +57,7 @@ const createTodo = (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: "Todo তৈরি সফল হয়েছে",
+      message: "Todo created successfully",
       data: newTodo,
     });
   } catch (error) {
@@ -65,20 +65,20 @@ const createTodo = (req, res, next) => {
   }
 };
 
-// ৪. টু-ডু আপডেট করা (Update Todo)
+// 4. Update Existing Todo
 const updateTodo = (req, res, next) => {
   try {
     const updated = TodoModel.update(req.params.id, req.body || {});
     if (!updated) {
       return res.status(404).json({
         success: false,
-        message: "Todo পাওয়া যায়নি",
+        message: `Todo with ID '${req.params.id}' not found`,
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Todo আপডেট সফল হয়েছে",
+      message: "Todo updated successfully",
       data: updated,
     });
   } catch (error) {
@@ -86,14 +86,14 @@ const updateTodo = (req, res, next) => {
   }
 };
 
-// ৫. টু-ডু সম্পন্ন বা অসম্পন্ন টগল করা (Toggle Todo)
+// 5. Toggle Todo Completed Status
 const toggleTodo = (req, res, next) => {
   try {
     const toggled = TodoModel.toggle(req.params.id);
     if (!toggled) {
       return res.status(404).json({
         success: false,
-        message: "Todo পাওয়া যায়নি",
+        message: `Todo with ID '${req.params.id}' not found`,
       });
     }
 
@@ -106,20 +106,20 @@ const toggleTodo = (req, res, next) => {
   }
 };
 
-// ৬. টু-ডু মুছে ফেলা (Delete Todo)
+// 6. Delete Todo
 const deleteTodo = (req, res, next) => {
   try {
     const isDeleted = TodoModel.delete(req.params.id);
     if (!isDeleted) {
       return res.status(404).json({
         success: false,
-        message: "Todo পাওয়া যায়নি",
+        message: `Todo with ID '${req.params.id}' not found`,
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Todo মুছে ফেলা হয়েছে",
+      message: "Todo deleted successfully",
     });
   } catch (error) {
     next(error);

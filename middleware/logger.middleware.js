@@ -1,6 +1,6 @@
-// সাধারণ রিকোয়েস্ট লগার মিডলওয়্যার
+// Simple request logger middleware
 function requestLogger(req, res, next) {
-  // টেস্ট চলার সময় কনসোল পরিষ্কার রাখতে লগিং বন্ধ থাকবে
+  // Silence console logs during automated test runs
   if (process.env.NODE_ENV !== "test") {
     const time = new Date().toLocaleTimeString();
     console.log(`[${time}] ${req.method} ${req.originalUrl || req.url}`);

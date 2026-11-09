@@ -1,29 +1,34 @@
 const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "todo_secret_key";
 
-// 1. Password Hashing (পাসওয়ার্ড হ্যাশ ও ভেরিফাই)
+// 1. Password Hashing (bcrypt দিয়ে হ্যাশ ও ভেরিফাই)
 
-// পাসওয়ার্ড হ্যাশ করা
+// পাসওয়ার্ড হ্যাশ করা (bcrypt)
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
+  return bcrypt.hashSync(password, 10);
 }
 
-// পাসওয়ার্ড মিল আছে কিনা যাচাই করা
+// পাসওয়ার্ড মিল আছে কিনা যাচাই করা (bcrypt)
 function verifyPassword(password, storedHash) {
-  if (!storedHash || !storedHash.includes(":")) return false;
-  const [salt, originalHash] = storedHash.split(":");
-  return crypto.scryptSync(password, salt, 64).toString("hex") === originalHash;
+  if (!storedHash) return false;
+  // পুরনো scrypt হ্যাশের সাথে ব্যাকওয়ার্ড কম্প্যাটিবিলিটি
+  if (storedHash.includes(":")) {
+    const [salt, originalHash] = storedHash.split(":");
+    return (
+      crypto.scryptSync(password, salt, 64).toString("hex") === originalHash
+    );
+  }
+  return bcrypt.compareSync(password, storedHash);
 }
 
 // 2. JWT (টোকেন জেনারেট ও ভেরিফাই)
 
-// JWT টোকেন তৈরি করা (মেয়াদ ৭ দিন)
+// JWT টোকেন তৈরি করা (মেয়াদ ২ ঘণ্টা)
 function generateToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "2h" });
 }
 
 // JWT টোকেন ভেরিফাই করা
@@ -37,12 +42,12 @@ function verifyToken(token) {
 
 // 3. Cookie-Parser (কুকি সেট ও রিড করা)
 
-// রেসপন্সে সুরক্ষিত HTTP-only কুকি সেট করা
+// রেসপন্সে সুরক্ষিত HTTP-only কুকি সেট করা (মেয়াদ ২ ঘণ্টা)
 function setAuthCookie(res, token) {
   res.cookie("token", token, {
     httpOnly: true, // ব্রাউজার JS অ্যাক্সেস বন্ধ (নিরাপদ)
     sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // ৭ দিন
+    maxAge: 2 * 60 * 60 * 1000, // ২ ঘণ্টা (2 hours in ms)
   });
 }
 
