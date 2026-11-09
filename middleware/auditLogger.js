@@ -128,6 +128,21 @@ function getAuditLogs() {
   return readAuditLogs();
 }
 
+// Retrieve audit logs strictly belonging to a specific authenticated user ID
+function getUserAuditLogs(userId) {
+  if (!userId) return [];
+  const logs = readAuditLogs();
+  const targetId = String(userId).trim();
+
+  return logs
+    .filter((entry) => {
+      if (!entry.user) return false;
+      const entryId = typeof entry.user === "object" ? entry.user.id : entry.user;
+      return entryId && String(entryId).trim() === targetId;
+    })
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
 function clearAuditLogs() {
   writeAuditLogs([]);
 }
@@ -147,13 +162,13 @@ function getClientIp(req) {
 
 function extractUser(req) {
   // 1. From req.user (if already authenticated)
-  if (req.user) {
-    return { id: req.user.id, email: req.user.email };
+  if (req.user && req.user.id) {
+    return { id: req.user.id, email: req.user.email, name: req.user.name };
   }
 
   // 2. From express-session
-  if (req.session?.user) {
-    return { id: req.session.user.id, email: req.session.user.email };
+  if (req.session?.user && req.session.user.id) {
+    return { id: req.session.user.id, email: req.session.user.email, name: req.session.user.name };
   }
   if (req.session?.userId) {
     return { id: req.session.userId, email: null };
@@ -167,7 +182,7 @@ function extractUser(req) {
   if (token) {
     const decoded = verifyToken(token);
     if (decoded?.id) {
-      return { id: decoded.id, email: decoded.email || null };
+      return { id: decoded.id, email: decoded.email || null, name: decoded.name || null };
     }
   }
 
@@ -230,9 +245,16 @@ function auditLogger(req, res, next) {
 
   // 2. Intercept response finish event to record structured log
   res.on("finish", () => {
-    // Re-check user in case request was authenticated during middleware chain
-    const finalUser = user || extractUser(req);
+    // Re-check user in case request was authenticated during middleware chain or controllers
+    const afterUser = extractUser(req);
+    const finalUser =
+      afterUser?.id
+        ? afterUser
+        : user?.id
+        ? user
+        : afterUser || user;
     const durationMs = Date.now() - startTime;
+    const userAgent = req.headers["user-agent"] || "unknown";
 
     const auditEntry = {
       id: crypto.randomUUID(),
@@ -251,7 +273,7 @@ function auditLogger(req, res, next) {
           : res.statusCode >= 400
           ? "CLIENT_ERROR"
           : "SUCCESS",
-      userAgent: req.headers["user-agent"] || "unknown",
+      userAgent,
     };
 
     appendAuditLog(auditEntry);
@@ -267,5 +289,6 @@ module.exports = {
   isBlocked,
   getBlockedUsers,
   getAuditLogs,
+  getUserAuditLogs,
   clearAuditLogs,
 };

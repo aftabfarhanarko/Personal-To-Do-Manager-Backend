@@ -11,9 +11,13 @@
   // ========================================================
   const state = {
     currentUser: null,
+    currentView: "tasks", // "tasks" | "activity"
     todos: [],
+    activityLogs: [],
     activeFilter: "all", // "all" | "pending" | "completed"
     searchQuery: "",
+    activityFilterMethod: "all", // "all" | "GET" | "POST" | "PATCH" | "DELETE"
+    activitySearchQuery: "",
     deleteCandidateId: null,
   };
 
@@ -26,6 +30,14 @@
     authView: document.getElementById("auth-view"),
     dashboardView: document.getElementById("dashboard-view"),
     toastContainer: document.getElementById("toast-container"),
+
+    // Subviews & Layout
+    tasksView: document.getElementById("tasks-view"),
+    activityView: document.getElementById("activity-view"),
+    headerTitle: document.querySelector(".header-title"),
+    headerSubtitle: document.querySelector(".header-subtitle"),
+    navActivity: document.getElementById("nav-activity"),
+    sidebarActivityBadge: document.getElementById("sidebar-activity-badge"),
 
     // Auth forms & tabs
     tabRegisterBtn: document.getElementById("tab-register-btn"),
@@ -97,6 +109,21 @@
     confirmModal: document.getElementById("confirm-modal"),
     modalBtnCancel: document.getElementById("modal-btn-cancel"),
     modalBtnConfirm: document.getElementById("modal-btn-confirm"),
+
+    // Activity Controls & Displays
+    statActivityTotal: document.getElementById("stat-activity-total"),
+    statActivitySuccessRate: document.getElementById("stat-activity-success-rate"),
+    statActivitySuccessSub: document.getElementById("stat-activity-success-sub"),
+    statCurrentBrowser: document.getElementById("stat-current-browser"),
+    statCurrentOs: document.getElementById("stat-current-os"),
+    btnRefreshActivity: document.getElementById("btn-refresh-activity"),
+    activityMethodTabs: document.querySelectorAll("#activity-method-tabs .filter-tab"),
+    activitySearchInput: document.getElementById("activity-search-input"),
+    activitySkeleton: document.getElementById("activity-skeleton"),
+    activityList: document.getElementById("activity-list"),
+    activityEmptyState: document.getElementById("activity-empty-state"),
+    activityEmptyTitle: document.getElementById("activity-empty-title"),
+    activityEmptySubtitle: document.getElementById("activity-empty-subtitle"),
   };
 
   // ========================================================
@@ -223,7 +250,114 @@
     elements.initialLoader.classList.add("hidden");
 
     updateUserProfileUI();
+    detectClientEnvironment();
+    switchDashboardView("tasks");
     fetchTodos();
+    fetchActivityLogs(false);
+  }
+
+  function updateHeaderDate() {
+    if (!elements.headerDate) return;
+    const now = new Date();
+    elements.headerDate.textContent = now.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function formatRelativeTime(dateString) {
+    if (!dateString) return "Recently";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+
+    if (diffSec < 45) return "Just now";
+    if (diffMin < 60) return `${diffMin} min${diffMin > 1 ? "s" : ""} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function parseUserAgent(ua) {
+    if (!ua || ua === "unknown") {
+      return { browser: "Web Client", os: "Unknown Device", summary: "Web Client" };
+    }
+
+    let browser = "Web Client";
+    let os = "Desktop";
+
+    // Operating System
+    if (/windows nt 10/i.test(ua)) os = "Windows 10/11";
+    else if (/windows/i.test(ua)) os = "Windows";
+    else if (/macintosh|mac os x/i.test(ua)) os = "macOS";
+    else if (/android/i.test(ua)) os = "Android";
+    else if (/iphone|ipad|ipod/i.test(ua)) os = "iOS";
+    else if (/linux/i.test(ua)) os = "Linux";
+
+    // Browser / Client
+    if (/edg\//i.test(ua)) browser = "Microsoft Edge";
+    else if (/chrome|crios/i.test(ua) && !/opr|opera/i.test(ua)) browser = "Google Chrome";
+    else if (/firefox|fxios/i.test(ua)) browser = "Mozilla Firefox";
+    else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = "Apple Safari";
+    else if (/opr|opera/i.test(ua)) browser = "Opera";
+    else if (/curl/i.test(ua)) browser = "cURL";
+    else if (/postman/i.test(ua)) browser = "Postman";
+    else if (/node/i.test(ua)) browser = "Node.js HTTP";
+
+    return {
+      browser,
+      os,
+      summary: `${browser} • ${os}`,
+    };
+  }
+
+  function detectClientEnvironment() {
+    const parsed = parseUserAgent(navigator.userAgent || "");
+    if (elements.statCurrentBrowser) {
+      elements.statCurrentBrowser.textContent = parsed.browser;
+    }
+    if (elements.statCurrentOs) {
+      elements.statCurrentOs.textContent = `${parsed.os} (Current Device)`;
+    }
+  }
+
+  function switchDashboardView(viewName) {
+    state.currentView = viewName;
+
+    elements.navItems.forEach((nav) => {
+      const targetView = nav.dataset.view || "tasks";
+      if (targetView === viewName && (viewName === "activity" || nav.getAttribute("href") === "#dashboard")) {
+        nav.classList.add("active");
+      } else if (targetView !== viewName) {
+        nav.classList.remove("active");
+      }
+    });
+
+    if (viewName === "activity") {
+      elements.tasksView.classList.add("hidden");
+      elements.activityView.classList.remove("hidden");
+      if (elements.headerTitle) elements.headerTitle.textContent = "My Activity & Logs";
+      if (elements.headerSubtitle) {
+        elements.headerSubtitle.textContent = `Activity and User-Agent history for ${state.currentUser?.name || "your account"}`;
+      }
+      fetchActivityLogs(true);
+    } else {
+      elements.activityView.classList.add("hidden");
+      elements.tasksView.classList.remove("hidden");
+      if (elements.headerTitle) elements.headerTitle.textContent = "Task Overview";
+      updateHeaderDate();
+      renderTodos();
+    }
   }
 
   function switchAuthTab(tab) {
@@ -411,15 +545,7 @@
     elements.headerUserName.textContent = name;
     elements.headerUserAvatar.textContent = initials;
 
-    // Header date display
-    const now = new Date();
-    const dateFormatted = now.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    elements.headerDate.textContent = dateFormatted;
+    updateHeaderDate();
   }
 
   // ========================================================
@@ -475,6 +601,7 @@
       elements.todoTitleInput.value = "";
       updateStats();
       renderTodos();
+      fetchActivityLogs(false);
       showToast("Task added successfully!", "success");
       elements.todoTitleInput.focus();
     } else {
@@ -502,6 +629,7 @@
       Object.assign(todo, res.data.data);
       updateStats();
       renderTodos();
+      fetchActivityLogs(false);
       showToast(
         todo.completed ? "Task marked as completed" : "Task marked as pending",
         "info"
@@ -544,6 +672,7 @@
       state.todos = state.todos.filter((t) => t.id !== todoId);
       updateStats();
       renderTodos();
+      fetchActivityLogs(false);
       showToast("Task deleted successfully.", "success");
     } else {
       showToast(res.data?.message || "Failed to delete task.", "error");
@@ -690,6 +819,196 @@
   }
 
   // ========================================================
+  // Activity Logs Handlers & Rendering
+  // ========================================================
+  async function fetchActivityLogs(showLoading = true) {
+    if (showLoading) {
+      elements.activitySkeleton.classList.remove("hidden");
+      elements.activityEmptyState.classList.add("hidden");
+      elements.activityList.innerHTML = "";
+    }
+
+    const res = await apiFetch("/api/auth/activity");
+
+    if (showLoading) {
+      elements.activitySkeleton.classList.add("hidden");
+    }
+
+    if (res.ok && Array.isArray(res.data?.data)) {
+      state.activityLogs = res.data.data;
+      updateActivityStats();
+      renderActivityLogs();
+    } else if (res.status === 401) {
+      showAuthView("login");
+    } else {
+      if (showLoading) {
+        showToast("Unable to load activity logs from server.", "error");
+      }
+    }
+  }
+
+  function updateActivityStats() {
+    const total = state.activityLogs.length;
+    const successCount = state.activityLogs.filter(
+      (l) => l.statusCode >= 200 && l.statusCode < 400
+    ).length;
+    const successRate = total > 0 ? Math.round((successCount / total) * 100) : 100;
+
+    if (elements.statActivityTotal) {
+      elements.statActivityTotal.textContent = total;
+    }
+    if (elements.sidebarActivityBadge) {
+      elements.sidebarActivityBadge.textContent = total;
+    }
+    if (elements.statActivitySuccessRate) {
+      elements.statActivitySuccessRate.textContent = `${successRate}%`;
+    }
+    if (elements.statActivitySuccessSub) {
+      elements.statActivitySuccessSub.textContent = `${successCount} successful of ${total} hits`;
+    }
+  }
+
+  function renderActivityLogs() {
+    const list = elements.activityList;
+    if (!list) return;
+    list.innerHTML = "";
+
+    const methodFilter = (state.activityFilterMethod || "all").toUpperCase();
+    const query = (state.activitySearchQuery || "").toLowerCase().trim();
+
+    const filtered = state.activityLogs.filter((entry) => {
+      // Method filter
+      if (methodFilter !== "ALL") {
+        if (methodFilter === "PATCH") {
+          if (entry.method !== "PATCH" && entry.method !== "PUT") return false;
+        } else if (entry.method !== methodFilter) {
+          return false;
+        }
+      }
+
+      // Search query filter
+      if (query) {
+        const urlMatch = entry.url && entry.url.toLowerCase().includes(query);
+        const methodMatch = entry.method && entry.method.toLowerCase().includes(query);
+        const uaMatch = entry.userAgent && entry.userAgent.toLowerCase().includes(query);
+        const ipMatch = entry.ip && entry.ip.toLowerCase().includes(query);
+        const statusMatch = entry.statusCode && String(entry.statusCode).includes(query);
+        if (!urlMatch && !methodMatch && !uaMatch && !ipMatch && !statusMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      elements.activityEmptyState.classList.remove("hidden");
+      if (query) {
+        elements.activityEmptyTitle.textContent = "No matching activity";
+        elements.activityEmptySubtitle.textContent = `No requests matched your search query "${query}".`;
+      } else if (methodFilter !== "ALL") {
+        elements.activityEmptyTitle.textContent = `No ${methodFilter} requests`;
+        elements.activityEmptySubtitle.textContent = `No ${methodFilter} operations recorded for your account.`;
+      } else {
+        elements.activityEmptyTitle.textContent = "No activity logs recorded";
+        elements.activityEmptySubtitle.textContent = "Requests hit with your authenticated account will show up here in real time.";
+      }
+      return;
+    }
+
+    elements.activityEmptyState.classList.add("hidden");
+
+    filtered.forEach((entry) => {
+      const li = document.createElement("li");
+      li.className = "activity-item";
+
+      const methodLower = (entry.method || "get").toLowerCase();
+      const code = entry.statusCode || 200;
+      const statusClass =
+        code >= 500
+          ? "status-5xx"
+          : code >= 400
+          ? "status-4xx"
+          : code >= 300
+          ? "status-3xx"
+          : "status-2xx";
+
+      const parsedUA = parseUserAgent(entry.userAgent);
+
+      // Line 1: Method badge, Route URL, Status code, Duration
+      const line1 = document.createElement("div");
+      line1.className = "activity-line-1";
+
+      const methodBadge = document.createElement("span");
+      methodBadge.className = `method-badge ${methodLower}`;
+      methodBadge.textContent = entry.method || "GET";
+
+      const urlEl = document.createElement("code");
+      urlEl.className = "activity-url";
+      urlEl.textContent = entry.url || "/";
+
+      const statusPill = document.createElement("span");
+      statusPill.className = `status-pill ${statusClass}`;
+      statusPill.textContent = `${code} ${code < 400 ? "OK" : "ERR"}`;
+
+      const durationBadge = document.createElement("span");
+      durationBadge.className = "duration-badge";
+      durationBadge.textContent = `${entry.durationMs ?? 0}ms`;
+
+      line1.appendChild(methodBadge);
+      line1.appendChild(urlEl);
+      line1.appendChild(statusPill);
+      line1.appendChild(durationBadge);
+
+      // Line 2: User Agent chip, IP, Timestamp
+      const line2 = document.createElement("div");
+      line2.className = "activity-line-2";
+
+      const uaChip = document.createElement("span");
+      uaChip.className = "ua-chip";
+      uaChip.title = `Full User-Agent: ${entry.userAgent || "Unknown"}`;
+      uaChip.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" x2="22" y1="12" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      `;
+      const uaSummarySpan = document.createElement("span");
+      uaSummarySpan.className = "ua-summary";
+      uaSummarySpan.textContent = parsedUA.summary;
+      uaChip.appendChild(uaSummarySpan);
+
+      const ipSpan = document.createElement("span");
+      ipSpan.className = "activity-ip";
+      ipSpan.textContent = `IP: ${entry.ip || "127.0.0.1"}`;
+
+      const timeSpan = document.createElement("span");
+      timeSpan.className = "activity-time";
+      timeSpan.title = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "";
+      timeSpan.textContent = formatRelativeTime(entry.timestamp);
+
+      line2.appendChild(uaChip);
+      line2.appendChild(ipSpan);
+      line2.appendChild(timeSpan);
+
+      // Line 3: Raw user-agent string tag
+      const rawWrap = document.createElement("div");
+      rawWrap.className = "ua-raw-toggle-wrap";
+      const rawSpan = document.createElement("span");
+      rawSpan.className = "ua-raw";
+      rawSpan.textContent = `User-Agent: ${entry.userAgent || "unknown"}`;
+      rawWrap.appendChild(rawSpan);
+
+      li.appendChild(line1);
+      li.appendChild(line2);
+      li.appendChild(rawWrap);
+
+      list.appendChild(li);
+    });
+  }
+
+  // ========================================================
   // Event Listeners & Binding
   // ========================================================
   function bindEvents() {
@@ -762,28 +1081,61 @@
       });
     });
 
-    // Sidebar Nav items (Syncs with filter)
+    // Sidebar Nav items (Syncs with filter and views)
     elements.navItems.forEach((nav) => {
       nav.addEventListener("click", (e) => {
         e.preventDefault();
         elements.navItems.forEach((n) => n.classList.remove("active"));
         nav.classList.add("active");
 
-        const targetFilter = nav.dataset.filter || "all";
-        state.activeFilter = targetFilter;
+        const targetView = nav.dataset.view || "tasks";
+        if (targetView === "activity") {
+          switchDashboardView("activity");
+        } else {
+          switchDashboardView("tasks");
+          const targetFilter = nav.dataset.filter || "all";
+          state.activeFilter = targetFilter;
 
-        elements.filterTabs.forEach((tab) => {
-          if (tab.dataset.filter === targetFilter) {
-            tab.classList.add("active");
-          } else {
-            tab.classList.remove("active");
-          }
-        });
+          elements.filterTabs.forEach((tab) => {
+            if (tab.dataset.filter === targetFilter) {
+              tab.classList.add("active");
+            } else {
+              tab.classList.remove("active");
+            }
+          });
 
-        renderTodos();
+          renderTodos();
+        }
+
         closeSidebar();
       });
     });
+
+    // Activity Method filter tabs
+    elements.activityMethodTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        elements.activityMethodTabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        state.activityFilterMethod = tab.dataset.method || "all";
+        renderActivityLogs();
+      });
+    });
+
+    // Activity Search
+    if (elements.activitySearchInput) {
+      elements.activitySearchInput.addEventListener("input", (e) => {
+        state.activitySearchQuery = e.target.value;
+        renderActivityLogs();
+      });
+    }
+
+    // Refresh Activity Button
+    if (elements.btnRefreshActivity) {
+      elements.btnRefreshActivity.addEventListener("click", () => {
+        fetchActivityLogs(true);
+        showToast("Activity logs refreshed.", "info");
+      });
+    }
 
     // Search Input
     elements.todoSearchInput.addEventListener("input", (e) => {

@@ -356,4 +356,123 @@ test("To-Do Manager API Suite", async (t) => {
     unblockUser(blockedEmail);
     assert.strictEqual(isBlocked(blockedEmail), false);
   });
+
+  await t.test("GET /api/auth/activity - requires authentication", async () => {
+    const res = await makeRequest(server, { path: "/api/auth/activity", method: "GET" });
+    assert.strictEqual(res.status, 401);
+    assert.strictEqual(res.data.success, false);
+  });
+
+  await t.test("GET /api/auth/activity - returns activity logs strictly for authenticated user with user-agent", async () => {
+    const customUserAgent = "CustomTestBrowser/2.0 (To-Do Test Suite)";
+    
+    // Perform an authenticated action with custom User-Agent
+    await makeRequest(server, {
+      path: "/api/todos",
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "User-Agent": customUserAgent,
+      },
+    });
+
+    // Small delay to ensure res.on("finish") write completes
+    await new Promise((r) => setTimeout(r, 60));
+
+    const res = await makeRequest(server, {
+      path: "/api/auth/activity",
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "User-Agent": customUserAgent,
+      },
+    });
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.success, true);
+    assert.ok(Array.isArray(res.data.data));
+    assert.ok(res.data.data.length > 0);
+
+    // Verify all returned logs strictly belong to this authenticated user
+    for (const log of res.data.data) {
+      assert.strictEqual(log.user.id, userId);
+      assert.ok(log.userAgent);
+    }
+
+    // Verify the custom User-Agent is captured
+    const matchingLog = res.data.data.find((l) => l.userAgent === customUserAgent);
+    assert.ok(matchingLog);
+    assert.strictEqual(matchingLog.userAgent, customUserAgent);
+  });
+
+  await t.test("getUserAuditLogs - isolates logs between users so users never see other users' logs", async () => {
+    const { getUserAuditLogs } = require("../middleware/auditLogger");
+
+    // Register second user
+    const regRes = await makeRequest(
+      server,
+      { path: "/api/auth/register", method: "POST" },
+      { name: "Second User", email: "second@example.com", password: "password123" }
+    );
+    assert.strictEqual(regRes.status, 201);
+    const secondUserId = regRes.data.data.user.id;
+    const secondToken = regRes.data.data.token;
+
+    // Second user performs an action
+    await makeRequest(server, {
+      path: "/api/todos",
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${secondToken}`,
+        "User-Agent": "SecondUserAgent/1.0",
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 60));
+
+    const firstUserLogs = getUserAuditLogs(userId);
+    const secondUserLogs = getUserAuditLogs(secondUserId);
+
+    assert.ok(firstUserLogs.length > 0);
+    assert.ok(secondUserLogs.length > 0);
+
+    // Assert complete isolation: no crossover
+    assert.ok(firstUserLogs.every((l) => l.user && l.user.id === userId));
+    assert.ok(secondUserLogs.every((l) => l.user && l.user.id === secondUserId));
+
+    // Calling with non-existent or invalid user ID returns empty array
+    assert.deepStrictEqual(getUserAuditLogs("non-existent-user-id"), []);
+    assert.deepStrictEqual(getUserAuditLogs(null), []);
+  });
+
+  await t.test("GET / with Accept: text/html - serves index.html with My Activity navigation", async () => {
+    const res = await makeRequest(server, {
+      path: "/",
+      method: "GET",
+      headers: { Accept: "text/html" },
+    });
+    assert.strictEqual(res.status, 200);
+    assert.ok(typeof res.data === "string");
+    assert.ok(res.data.includes("nav-activity"));
+    assert.ok(res.data.includes("activity-view"));
+    assert.ok(res.data.includes("My Activity"));
+  });
+
+  await t.test("GET /api/auth/user-agent-logs and /my-activity - serve user activity aliases", async () => {
+    const res1 = await makeRequest(server, {
+      path: "/api/auth/user-agent-logs",
+      method: "GET",
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    assert.strictEqual(res1.status, 200);
+    assert.strictEqual(res1.data.success, true);
+
+    const res2 = await makeRequest(server, {
+      path: "/api/auth/my-activity",
+      method: "GET",
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    assert.strictEqual(res2.status, 200);
+    assert.strictEqual(res2.data.success, true);
+  });
 });

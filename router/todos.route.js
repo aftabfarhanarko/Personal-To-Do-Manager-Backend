@@ -26,7 +26,7 @@ router.use(optionalAuth);
 router.get("/", getAllTodos);
 router.post("/", validateTodo, createTodo);
 
-// Routes targeting a specific ID verify item existence first
+
 router.get("/:id", checkTodoExists, getTodoById);
 router.put("/:id", checkTodoExists, updateTodo);
 router.patch("/:id", checkTodoExists, updateTodo);
