@@ -475,4 +475,24 @@ test("To-Do Manager API Suite", async (t) => {
     assert.strictEqual(res2.status, 200);
     assert.strictEqual(res2.data.success, true);
   });
+
+  await t.test("requestLogger - records request data to logs/request-logs.json", async () => {
+    const { getRequestLogs, clearRequestLogs } = require("../middleware/logger.middleware");
+    clearRequestLogs();
+
+    await makeRequest(server, { path: "/health", method: "GET" });
+    await new Promise((r) => setTimeout(r, 60));
+
+    const logs = getRequestLogs();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.length > 0);
+    const last = logs[logs.length - 1];
+    assert.strictEqual(last.method, "GET");
+    assert.strictEqual(last.url, "/health");
+    assert.strictEqual(last.statusCode, 200);
+    assert.ok(typeof last.durationMs === "number");
+    assert.ok(last.timestamp);
+    assert.ok(last.ip);
+    assert.ok(last.userAgent);
+  });
 });

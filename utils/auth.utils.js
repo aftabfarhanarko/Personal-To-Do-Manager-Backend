@@ -4,9 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "todo_secret_key";
 
-// ==========================================
 // 1. Password Hashing (bcrypt)
-// ==========================================
 
 // Hash password using bcrypt
 function hashPassword(password) {
@@ -23,9 +21,7 @@ function verifyPassword(password, storedHash) {
   return bcrypt.compareSync(password, storedHash);
 }
 
-// ==========================================
 // 2. JWT (Token generation and verification)
-// ==========================================
 
 // Generate JWT token (expires in 2 hours)
 function generateToken(payload) {
@@ -41,9 +37,7 @@ function verifyToken(token) {
   }
 }
 
-// ==========================================
 // 3. Cookie-Parser Helpers
-// ==========================================
 
 // Set HTTP-only secure cookie on response (expires in 2 hours)
 function setAuthCookie(res, token) {
@@ -61,9 +55,7 @@ function getTokenFromCookie(req) {
   return match ? decodeURIComponent(match[1].trim()) : null;
 }
 
-// ==========================================
 // 4. Express-Session Helpers
-// ==========================================
 
 // Save user data into express-session
 function setSessionUser(req, user) {

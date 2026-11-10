@@ -18,9 +18,7 @@ const { notFoundHandler, errorHandler } = require("./middleware/error.middleware
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==============================
 // 1. Middlewares
-// ==============================
 app.use(requestLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -38,9 +36,7 @@ app.use(auditLogger);
 // Serve frontend static assets from public/
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
-// ==============================
 // 2. Root & Health Check Routes
-// ==============================
 app.get("/", (req, res) => {
   // If request is from a browser asking for HTML, serve the frontend SPA
   if (req.headers.accept && req.headers.accept.includes("text/html")) {
@@ -62,9 +58,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
-// ==============================
 // 3. API Routes
-// ==============================
 app.use("/api/auth", authRouter);
 app.use("/api/todos", todosRouter);
 
@@ -73,9 +67,7 @@ app.use("/auth", authRouter);
 app.use("/todos", todosRouter);
 app.use("/", authRouter);
 
-// ==============================
 // 4. Error Handling
-// ==============================
 app.use(notFoundHandler);
 app.use(errorHandler);
 
